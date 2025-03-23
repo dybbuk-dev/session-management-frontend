@@ -1,103 +1,158 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import axios from "axios";
+import Link from "next/link";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+const api = process.env.NEXT_PUBLIC_API_URL;
+
+type Session = {
+  _id: string;
+  name: string;
+  startAt: string;
+  endAt: string;
+  quota: number;
+};
+
+type Student = {
+  _id: string;
+  name: string;
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    axios.get(`${api}/sessions`).then((res) => setSessions(res.data));
+    axios.get(`${api}/students`).then((res) => setStudents(res.data));
+  }, []);
+
+  const dates = [
+    ...new Set(sessions.map((s) => format(new Date(s.startAt), "yyyy-MM-dd"))),
+  ].sort();
+
+  const sessionsForDate = sessions.filter(
+    (s) => format(new Date(s.startAt), "yyyy-MM-dd") === selectedDate
+  );
+
+  const assign = async () => {
+    if (!selectedSession || !selectedStudent) return;
+    await axios.post(`${api}/assignments`, {
+      student: selectedStudent,
+      session: selectedSession._id,
+    });
+    alert("Estudiante asignado correctamente");
+    setSelectedStudent("");
+  };
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto text-blue-900">
+      <div className="absolute top-6 right-6">
+        <Link href="/admin">
+          <button className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700 transition shadow">
+            ⚙️ Admin
+          </button>
+        </Link>
+      </div>
+      <h2 className="text-xl font-bold mb-2">Calendario :</h2>
+      <div className="flex gap-4 mb-6">
+        {dates.map((date) => (
+          <button
+            key={date}
+            onClick={() => setSelectedDate(date)}
+            className={`rounded-lg px-4 py-2 border-2 ${
+              selectedDate === date
+                ? "bg-blue-100 border-blue-500"
+                : "border-blue-200"
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="font-semibold">
+              {format(new Date(date), "EEEE", { locale: es })}
+            </div>
+            <div className="text-lg">{format(new Date(date), "d")}</div>
+            <div>{format(new Date(date), "MMMM", { locale: es })}</div>
+          </button>
+        ))}
+      </div>
+
+      {selectedDate && (
+        <>
+          <h3 className="text-xl font-bold mb-2">Sesiones disponibles :</h3>
+          <div className="flex gap-4 flex-wrap mb-6">
+            {sessionsForDate.map((s) => (
+              <button
+                key={s._id}
+                onClick={() => setSelectedSession(s)}
+                className={`rounded-lg border-2 px-4 py-3 text-left w-48 hover:bg-blue-50 ${
+                  selectedSession?._id === s._id
+                    ? "border-blue-500"
+                    : "border-blue-200"
+                }`}
+              >
+                <div className="font-bold uppercase">{s.name}</div>
+                <div>
+                  {format(new Date(s.startAt), "HH:mm")} a{" "}
+                  {format(new Date(s.endAt), "HH:mm")}
+                </div>
+                <div>Cupo: {s.quota}</div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {selectedSession && (
+        <div className="border rounded-xl p-6 shadow bg-white">
+          <h4 className="text-lg font-bold mb-4">
+            Curso: {selectedSession.name}
+          </h4>
+          <p>
+            <strong>Fecha inicio:</strong>{" "}
+            {format(new Date(selectedSession.startAt), "EEEE d MMMM", {
+              locale: es,
+            })}
+          </p>
+          <p>
+            <strong>Horario:</strong>{" "}
+            {format(new Date(selectedSession.startAt), "HH:mm")} a{" "}
+            {format(new Date(selectedSession.endAt), "HH:mm")}
+          </p>
+          <p>
+            <strong>Cupo disponible:</strong> {selectedSession.quota}
+          </p>
+
+          <div className="mt-4">
+            <label className="block mb-1 font-medium">
+              Asignar Estudiante:
+            </label>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={selectedStudent}
+              onChange={(e) => setSelectedStudent(e.target.value)}
+            >
+              <option value="">Seleccione un estudiante</option>
+              {students.map((stu) => (
+                <option key={stu._id} value={stu._id}>
+                  {stu.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={assign}
+            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
           >
-            Read our docs
-          </a>
+            Asignar
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
     </div>
   );
 }
