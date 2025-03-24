@@ -27,6 +27,7 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [selectedStudent, setSelectedStudent] = useState("");
+  const [assignmentError, setAssignmentError] = useState("");
 
   useEffect(() => {
     axios.get(`${api}/sessions`).then((res) => setSessions(res.data));
@@ -42,13 +43,25 @@ export default function Home() {
   );
 
   const assign = async () => {
+    setAssignmentError("");
     if (!selectedSession || !selectedStudent) return;
-    await axios.post(`${api}/assignments`, {
-      student: selectedStudent,
-      session: selectedSession._id,
-    });
-    alert("Estudiante asignado correctamente");
-    setSelectedStudent("");
+    try {
+      await axios.post(`${api}/assignments`, {
+        student: selectedStudent,
+        session: selectedSession._id,
+      });
+      alert("Estudiante asignado correctamente");
+      setSelectedStudent("");
+    } catch (error: any) {
+      const resData = error?.response?.data;
+      const msg =
+        typeof resData === "string"
+          ? resData
+          : resData?.message ||
+            resData?.error ||
+            "No se pudo asignar al estudiante";
+      setAssignmentError(msg);
+    }
   };
 
   return (
@@ -151,6 +164,9 @@ export default function Home() {
           >
             Asignar
           </button>
+          {assignmentError && (
+            <p className="mt-2 text-sm text-red-600">{assignmentError}</p>
+          )}
         </div>
       )}
     </div>
